@@ -3,4 +3,4 @@ services:
     name: fastapi-file-upload
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app_JV:app --host 0.0.0.0 --port 10000
+    startCommand: uvicorn app_JV:app --host 0.0.0.0 --port 8080

@@ -139,6 +139,3 @@ async def upload_excel(
     finally:
         if os.path.exists(temp_input.name):
             os.remove(temp_input.name)
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)

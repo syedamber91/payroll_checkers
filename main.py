@@ -8,6 +8,7 @@ import tempfile
 import shutil
 import os
 import re
+import logging
 
 app = FastAPI()
 
@@ -56,6 +57,10 @@ def get_gl_account(description, department_code):
 
     base_description = re.sub(r'\s+\w+\s+\d{4}$', '', description).strip()
     return account_map.get(base_description, '')
+
+@app.get("/")
+def health_check():
+    return {"status": "API is up"}
 
 @app.post("/upload/")
 async def upload_excel(

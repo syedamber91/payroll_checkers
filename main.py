@@ -1,6 +1,8 @@
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from openpyxl import load_workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
 from datetime import datetime
 import pandas as pd
 import uvicorn
@@ -9,10 +11,11 @@ import shutil
 import os
 import re
 import logging
+import xlrd
 
 app = FastAPI()
 
-# Allow CORS if using frontend
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -70,21 +73,45 @@ async def upload_excel(
     journal_code: str = Form(...)
 ):
     try:
-        temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in [".xls", ".xlsx"]:
+            raise HTTPException(status_code=400, detail="Only .xls and .xlsx files are supported.")
+
+        # Save uploaded file temporarily
+        temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
         with temp_input as f:
             shutil.copyfileobj(file.file, f)
 
-        try:
-            excel_file = pd.ExcelFile(temp_input.name)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid Excel file format.")
+        # Handle .xlsx with pandas/openpyxl
+        if ext == ".xlsx":
+            excel_file = pd.ExcelFile(temp_input.name, engine='openpyxl')
+            sheet_map = {sheet.strip(): sheet for sheet in excel_file.sheet_names}
+            actual_sheet_name = sheet_map.get(sheet_name)
+            if actual_sheet_name is None:
+                raise HTTPException(status_code=400, detail=f"Sheet '{sheet_name}' not found.")
+            
+            df = pd.read_excel(temp_input.name, sheet_name=actual_sheet_name)
 
-        sheet_map = {sheet.strip(): sheet for sheet in excel_file.sheet_names}
-        actual_sheet_name = sheet_map.get(sheet_name)
-        if actual_sheet_name is None:
-            raise HTTPException(status_code=400, detail=f"Sheet '{sheet_name}' not found.")
+        # Handle .xls with xlrd
+        elif ext == ".xls":
+            workbook = xlrd.open_workbook(temp_input.name)
+            sheet_names = workbook.sheet_names()
+            sheet_map = {sheet.strip(): sheet for sheet in sheet_names}
+            actual_sheet_name = sheet_map.get(sheet_name)
+            if actual_sheet_name is None:
+                raise HTTPException(status_code=400, detail=f"Sheet '{sheet_name}' not found.")
+            
+            sheet = workbook.sheet_by_name(actual_sheet_name)
+            data = []
+            for row_idx in range(sheet.nrows):
+                data.append(sheet.row_values(row_idx))
+            
+            df = pd.DataFrame(data[1:], columns=data[0])  # Assuming first row is header
 
         date_obj, month_year = validate_date(posting_date)
+        month_abbr = date_obj.strftime("%b")
+        year = date_obj.strftime("%Y")
+        new_sheet_name = f"JV {month_abbr} {year}"
 
         df = pd.read_excel(temp_input.name, sheet_name=actual_sheet_name)
         df.columns = [clean_column_name(col) for col in df.columns]
@@ -131,13 +158,30 @@ async def upload_excel(
             'Posting Date', 'Journal Code', 'G/L Account',
             'Department Code', 'Account Number', 'Description', 'Amount'
         ]
-        melted_df = melted_df[melted_df['Amount'] != 0]
-        melted_df = melted_df[final_cols].sort_values(by=['Department Code', 'Description'])
 
+        # Use openpyxl to preserve formatting
+        wb = load_workbook(temp_input.name)
+
+        # Hide JSR sheet if it exists
+        if "JSR" in wb.sheetnames:
+            wb["JSR"].sheet_state = "hidden"
+
+        # Remove existing JV sheet if present
+        if new_sheet_name in wb.sheetnames:
+            del wb[new_sheet_name]
+
+        # Create new sheet and write data
+        ws_jv = wb.create_sheet(title=new_sheet_name)
+        for r in dataframe_to_rows(melted_df[final_cols], index=False, header=True):
+            ws_jv.append(r)
+
+        # Save to new output file
         temp_output = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
-        melted_df.to_excel(temp_output.name, index=False)
+        wb.save(temp_output.name)
+        wb.close()
 
-        return FileResponse(path=temp_output.name, filename="processed_output.xlsx")
+        output_filename = f"{os.path.splitext(file.filename)[0]}_with_JV_{month_abbr}_{year}.xlsx"
+        return FileResponse(path=temp_output.name, filename=output_filename)
 
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -146,4 +190,4 @@ async def upload_excel(
             os.remove(temp_input.name)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

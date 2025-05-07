@@ -2,4 +2,5 @@ fastapi
 uvicorn
 pandas
 python-multipart
-openpyxl
+openpyxl==3.1.2
+xlrd==2.0.1

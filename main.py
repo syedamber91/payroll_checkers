@@ -155,6 +155,8 @@ async def upload_excel(
         melted_df['G/L Account'] = "G/L Account"
         melted_df['Department Code'] = melted_df[group_col]
 
+        melted_df.sort_values(by='Department Code', inplace=True)
+        
         final_cols = [
             'Posting Date', 'Journal Code', 'G/L Account',
             'Department Code', 'Account Number', 'Description', 'Amount'

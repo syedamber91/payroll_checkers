@@ -94,6 +94,7 @@ async def upload_excel(
 
         # Handle .xls with xlrd
         elif ext == ".xls":
+            print("inside the xls job")
             workbook = xlrd.open_workbook(temp_input.name)
             sheet_names = workbook.sheet_names()
             sheet_map = {sheet.strip(): sheet for sheet in sheet_names}
@@ -190,4 +191,4 @@ async def upload_excel(
             os.remove(temp_input.name)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8003)

@@ -92,6 +92,10 @@ def convert_xls_to_xlsx(input_path: str) -> str:
     
     return output_path
 
+@app.get("/")
+def health_check():
+    return {"status": "API is up"}
+
 @app.get("/check-environment")
 async def check_env():
     """Verify Java and converter are properly installed"""
@@ -109,16 +113,13 @@ async def check_env():
         "path": os.getenv("PATH")
     }
 
-@app.get("/")
-def health_check():
-    return {"status": "API is up"}
 
 @app.post("/upload/")
 async def upload_excel(
     file: UploadFile = File(...),
-    sheet_name: str = Form(...),
-    posting_date: str = Form(...),
-    journal_code: str = Form(...)
+    sheet_name: str = Form("NEW PAYROLL"),
+    posting_date: str = Form("31/03/25"),
+    journal_code: str = Form("J03/23")
 ):  
     # temp_input = None
     # converted_file = None

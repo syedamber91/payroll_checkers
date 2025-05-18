@@ -140,7 +140,7 @@ async def upload_excel(
             
             converted_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
             java_command = [
-                "java", "-jar", "xls-xlsx-converter/target/xls-xlsx-converter-1.0-jar-with-dependencies.jar",
+                "java","-Xmx1024m" ,"-jar", "xls-xlsx-converter/target/xls-xlsx-converter-1.0-jar-with-dependencies.jar",
                 temp_input.name,
                 converted_file.name
             ]

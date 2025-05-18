@@ -2,5 +2,7 @@ services:
   - type: web
     name: fastapi-file-upload
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      pip install -r requirements.txt
+      cd xls-xlsx-converter && mvn clean package
     startCommand: uvicorn app_JV:app --host 0.0.0.0 --port 8080

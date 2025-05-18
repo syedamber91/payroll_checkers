@@ -92,6 +92,23 @@ def convert_xls_to_xlsx(input_path: str) -> str:
     
     return output_path
 
+@app.get("/check-environment")
+async def check_env():
+    """Verify Java and converter are properly installed"""
+    checks = {
+        "java": subprocess.run(["which", "java"], capture_output=True),
+        "java_version": subprocess.run(["java", "-version"], capture_output=True),
+        "converter_jar": os.path.exists("xls-xlsx-converter/target/xls-xlsx-converter-1.0-jar-with-dependencies.jar")
+    }
+    
+    return {
+        "java_installed": checks["java"].returncode == 0,
+        "java_version": checks["java_version"].stderr.decode().split('\n')[0],
+        "converter_jar_exists": checks["converter_jar"],
+        "java_home": os.getenv("JAVA_HOME"),
+        "path": os.getenv("PATH")
+    }
+
 @app.get("/")
 def health_check():
     return {"status": "API is up"}
